@@ -16,12 +16,15 @@ SCHEMES = ("vless://", "vmess://", "trojan://", "ss://")
 
 
 def load_sources():
-    # Preferred Railway Variables: SOURCE_1=URL, SOURCE_2=URL, ... SOURCE_20=URL.
-    # Numeric names are also checked for backward compatibility.
+    # Railway Variables: link_1=URL, link_2=URL, ... link_20=URL.
+    # Keep previous names as backward-compatible fallbacks.
     numbered = []
     for index in range(1, 21):
-        value = os.getenv(f"SOURCE_{index}") or os.getenv(str(index), "")
-        value = value.strip()
+        value = (
+            os.getenv(f"link_{index}")
+            or os.getenv(f"SOURCE_{index}")
+            or os.getenv(str(index), "")
+        ).strip()
         if value:
             numbered.append(value)
     # Keep SOURCES as a backwards-compatible alternative.
@@ -116,7 +119,7 @@ async def refresh():
     global SOURCES
     SOURCES = load_sources()
     if not SOURCES:
-        state["last_error"] = "No sources configured. Add SOURCE_1 through SOURCE_20 Railway Variables."
+        state["last_error"] = "No sources configured. Add link_1 through link_20 Railway Variables."
         return
 
     errors = []
