@@ -19,7 +19,7 @@ def load_sources():
     # Railway Variables: 1=URL, 2=URL, ... 100=URL
     numbered = [
         os.getenv(str(index), "").strip()
-        for index in range(1, 101)
+        for index in range(1, 21)
         if os.getenv(str(index), "").strip()
     ]
     # Keep SOURCES as a backwards-compatible alternative.
@@ -114,7 +114,7 @@ async def refresh():
     global SOURCES
     SOURCES = load_sources()
     if not SOURCES:
-        state["last_error"] = "No sources configured. Add Railway Variables named 1 through 100."
+        state["last_error"] = "No sources configured. Add Railway Variables named 1 through 20."
         return
 
     errors = []
