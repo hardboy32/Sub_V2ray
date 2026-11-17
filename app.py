@@ -25,7 +25,7 @@ def load_sources():
         if value:
             numbered.append(value)
     # Keep SOURCES as a backwards-compatible alternative.
-    legacy = [x.strip() for x in re.split(r"[,\\n]+", os.getenv("SOURCES", "")) if x.strip()]
+    legacy = [x.strip() for x in re.split(r"[,\n]+", os.getenv("SOURCES", "")) if x.strip()]
     return list(dict.fromkeys(numbered + legacy))
 
 
@@ -47,12 +47,12 @@ scheduler = AsyncIOScheduler()
 
 
 def decode_subscription(body: str) -> str:
-    text = body.strip().lstrip("\\ufeff")
+    text = body.strip().lstrip("\ufeff")
     if not text:
         return ""
     if any(s in text.lower() for s in SCHEMES):
         return text
-    compact = re.sub(r"\\s+", "", text)
+    compact = re.sub(r"\s+", "", text)
     try:
         decoded = base64.b64decode(compact + "=" * (-len(compact) % 4)).decode("utf-8", "ignore")
         if any(s in decoded.lower() for s in SCHEMES):
@@ -184,7 +184,7 @@ async def status():
 @app.get("/sub/all", response_class=Response)
 async def subscription():
     if not state["items"]:
-        return Response("Subscription is being prepared. Please retry later.\\n", status_code=503, media_type="text/plain")
-    payload = "\\n".join(state["items"]) + "\\n"
+        return Response("Subscription is being prepared. Please retry later.\n", status_code=503, media_type="text/plain")
+    payload = "\n".join(state["items"]) + "\n"
     encoded = base64.b64encode(payload.encode()).decode()
     return Response(encoded, media_type="text/plain; charset=utf-8")
