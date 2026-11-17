@@ -16,14 +16,16 @@ SCHEMES = ("vless://", "vmess://", "trojan://", "ss://")
 
 
 def load_sources():
-    # Railway Variables: 1=URL, 2=URL, ... 100=URL
-    numbered = [
-        os.getenv(str(index), "").strip()
-        for index in range(1, 21)
-        if os.getenv(str(index), "").strip()
-    ]
+    # Preferred Railway Variables: SOURCE_1=URL, SOURCE_2=URL, ... SOURCE_20=URL.
+    # Numeric names are also checked for backward compatibility.
+    numbered = []
+    for index in range(1, 21):
+        value = os.getenv(f"SOURCE_{index}") or os.getenv(str(index), "")
+        value = value.strip()
+        if value:
+            numbered.append(value)
     # Keep SOURCES as a backwards-compatible alternative.
-    legacy = [x.strip() for x in re.split(r"[,\n]+", os.getenv("SOURCES", "")) if x.strip()]
+    legacy = [x.strip() for x in re.split(r"[,\\n]+", os.getenv("SOURCES", "")) if x.strip()]
     return list(dict.fromkeys(numbered + legacy))
 
 
@@ -45,12 +47,12 @@ scheduler = AsyncIOScheduler()
 
 
 def decode_subscription(body: str) -> str:
-    text = body.strip().lstrip("\ufeff")
+    text = body.strip().lstrip("\\ufeff")
     if not text:
         return ""
     if any(s in text.lower() for s in SCHEMES):
         return text
-    compact = re.sub(r"\s+", "", text)
+    compact = re.sub(r"\\s+", "", text)
     try:
         decoded = base64.b64decode(compact + "=" * (-len(compact) % 4)).decode("utf-8", "ignore")
         if any(s in decoded.lower() for s in SCHEMES):
@@ -114,7 +116,7 @@ async def refresh():
     global SOURCES
     SOURCES = load_sources()
     if not SOURCES:
-        state["last_error"] = "No sources configured. Add Railway Variables named 1 through 20."
+        state["last_error"] = "No sources configured. Add SOURCE_1 through SOURCE_20 Railway Variables."
         return
 
     errors = []
@@ -134,13 +136,12 @@ async def refresh():
     tested = await asyncio.gather(*(probe(link, semaphore) for link in unique))
     alive = [x for x in tested if x]
     alive.sort(key=lambda x: x["latency_ms"])
+    state["sources_ok"] = len(SOURCES) - len(errors)
     if alive:
         state["items"] = [x["link"] for x in alive[:MAX_RESULTS]]
-        state["sources_ok"] = len(SOURCES) - len(errors)
         state["last_refresh"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         state["last_error"] = "; ".join(errors[:5]) if errors else None
     elif not state["items"]:
-        state["sources_ok"] = len(SOURCES) - len(errors)
         state["last_error"] = "; ".join(errors[:5]) or "No reachable endpoints found"
 
 
@@ -174,7 +175,7 @@ async def status():
         "iran_test_available": state["iran_test_available"],
         "server_side_check": "TCP reachability from Railway only",
         "client_side_ping": True,
-        "client_side_selection": "The user's V2Ray client tests imported nodes and chooses the preferred one",
+        "client_side_selection": "The user's own V2Ray client tests imported nodes and chooses the preferred one",
         "test_location": "Railway deployment region; not Iran",
     }
 
@@ -183,7 +184,7 @@ async def status():
 @app.get("/sub/all", response_class=Response)
 async def subscription():
     if not state["items"]:
-        return Response("Subscription is being prepared. Please retry later.\n", status_code=503, media_type="text/plain")
-    payload = "\n".join(state["items"]) + "\n"
+        return Response("Subscription is being prepared. Please retry later.\\n", status_code=503, media_type="text/plain")
+    payload = "\\n".join(state["items"]) + "\\n"
     encoded = base64.b64encode(payload.encode()).decode()
     return Response(encoded, media_type="text/plain; charset=utf-8")
