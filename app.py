@@ -13,7 +13,21 @@ from fastapi import FastAPI, Response
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 SCHEMES = ("vless://", "vmess://", "trojan://", "ss://")
-SOURCES = [x.strip() for x in re.split(r"[,\n]+", os.getenv("SOURCES", "")) if x.strip()]
+
+
+def load_sources():
+    # Railway Variables: 1=URL, 2=URL, ... 100=URL
+    numbered = [
+        os.getenv(str(index), "").strip()
+        for index in range(1, 101)
+        if os.getenv(str(index), "").strip()
+    ]
+    # Keep SOURCES as a backwards-compatible alternative.
+    legacy = [x.strip() for x in re.split(r"[,\n]+", os.getenv("SOURCES", "")) if x.strip()]
+    return list(dict.fromkeys(numbered + legacy))
+
+
+SOURCES = load_sources()
 REFRESH_MINUTES = max(5, int(os.getenv("REFRESH_MINUTES", "30")))
 MAX_RESULTS = max(1, int(os.getenv("MAX_RESULTS", "200")))
 CONCURRENCY = max(1, int(os.getenv("TEST_CONCURRENCY", "40")))
@@ -54,7 +68,6 @@ def endpoint(link: str):
             data = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
             return str(data.get("add", "")), int(data.get("port", 0))
         if raw.lower().startswith("ss://"):
-            # SIP002 links may encode the whole userinfo section or use a plain authority.
             part = raw[5:].split("#", 1)[0].split("?", 1)[0]
             if "@" not in part:
                 part = base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)).decode()
@@ -83,7 +96,7 @@ async def probe(link: str, semaphore: asyncio.Semaphore):
     async with semaphore:
         started = time.perf_counter()
         try:
-            reader, writer = await asyncio.wait_for(
+            _, writer = await asyncio.wait_for(
                 asyncio.open_connection(host, port), timeout=CONNECT_TIMEOUT
             )
             latency = (time.perf_counter() - started) * 1000
@@ -98,6 +111,12 @@ async def probe(link: str, semaphore: asyncio.Semaphore):
 
 
 async def refresh():
+    global SOURCES
+    SOURCES = load_sources()
+    if not SOURCES:
+        state["last_error"] = "No sources configured. Add Railway Variables named 1 through 100."
+        return
+
     errors = []
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(12), follow_redirects=True,
@@ -109,20 +128,19 @@ async def refresh():
         candidates.extend(links)
         if error:
             errors.append(error)
-    # Exact normalized URI deduplication, retaining the first occurrence.
     unique = list(dict.fromkeys(x.strip() for x in candidates))
     state["candidates"] = len(unique)
     semaphore = asyncio.Semaphore(CONCURRENCY)
     tested = await asyncio.gather(*(probe(link, semaphore) for link in unique))
     alive = [x for x in tested if x]
     alive.sort(key=lambda x: x["latency_ms"])
-    # Publish only after a complete refresh. If everything fails, retain last known-good data.
     if alive:
         state["items"] = [x["link"] for x in alive[:MAX_RESULTS]]
         state["sources_ok"] = len(SOURCES) - len(errors)
         state["last_refresh"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         state["last_error"] = "; ".join(errors[:5]) if errors else None
     elif not state["items"]:
+        state["sources_ok"] = len(SOURCES) - len(errors)
         state["last_error"] = "; ".join(errors[:5]) or "No reachable endpoints found"
 
 
