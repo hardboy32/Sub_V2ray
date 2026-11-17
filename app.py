@@ -172,10 +172,14 @@ async def status():
         "published": len(state["items"]),
         "max_results": MAX_RESULTS,
         "iran_test_available": state["iran_test_available"],
+        "server_side_check": "TCP reachability from Railway only",
+        "client_side_ping": True,
+        "client_side_selection": "The user's V2Ray client tests imported nodes and chooses the preferred one",
         "test_location": "Railway deployment region; not Iran",
     }
 
 
+@app.get("/sub", response_class=Response)
 @app.get("/sub/all", response_class=Response)
 async def subscription():
     if not state["items"]:
