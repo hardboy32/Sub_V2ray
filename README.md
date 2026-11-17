@@ -1,38 +1,53 @@
 # Sub V2ray
 
-Public V2Ray subscription aggregator that collects configured sources, normalizes and deduplicates supported proxy links, checks endpoint reachability, ranks candidates, and publishes a stable subscription URL.
+Public V2Ray subscription aggregator that collects configured sources, deduplicates supported proxy links, checks endpoint reachability, ranks candidates, and publishes a stable subscription URL.
 
-## Planned behavior
+## Behavior
 
 - Refresh source subscriptions every 30 minutes.
 - Decode plain-text and Base64 subscription responses.
 - Parse VLESS, VMess, Trojan, and Shadowsocks links.
-- Deduplicate normalized links.
+- Remove exact duplicate links.
 - Check endpoint TCP reachability with bounded concurrency and timeouts.
-- Keep at most 200 best-scoring candidates.
+- Keep at most 200 reachable candidates, ranked by TCP response time.
 - Publish a stable public subscription endpoint.
 - Preserve the last known-good output if a refresh fails.
 
-## Important testing limitation
+## Railway Variables
 
-A deployment on Railway tests reachability from Railway's network, not from Iranian mobile/fixed-line networks. An Iran-specific result must only be published after a real test agent is available inside Iran. The initial version must not label foreign-region tests as Iran tests.
+Add source URLs as separate Railway Variables. Use the numbers `1` through `100` as variable names and put one subscription URL in each value:
 
-## Configuration
+```text
+1 = https://example.com/sub1
+2 = https://example.com/sub2
+3 = https://github.com/example/configs
+...
+100 = https://example.com/sub100
+```
 
-Set `SOURCES` to a comma- or newline-separated list of subscription URLs in Railway Variables. Optional variables:
+You do not need to fill every number; empty or missing numbers are ignored. The app reads these variables on startup and on every refresh. The old `SOURCES` variable (comma- or newline-separated URLs) is also supported for compatibility.
+
+Optional variables:
 
 - `REFRESH_MINUTES` (default: `30`)
 - `MAX_RESULTS` (default: `200`)
 - `TEST_CONCURRENCY` (default: `40`)
 - `CONNECT_TIMEOUT` (default: `4`)
-- `PUBLIC_BASE_URL` (used to display the stable subscription URL)
+
+## Endpoints
+
+- `/sub/all` — Base64 subscription output for clients such as v2rayNG, v2rayN, and Hiddify.
+- `/health` — health check.
+- `/status` — source and refresh status.
+
+## Testing limitation
+
+Railway checks TCP reachability from the Railway deployment region, not from Iranian mobile/fixed-line networks. This is only a basic endpoint check, not a full V2Ray handshake or real throughput benchmark. Do not treat it as an Iran test. An Iran-specific result requires a real test agent running on an Iranian connection.
+
+## Security
+
+The subscription endpoint is public. Anyone who obtains its URL can retrieve the selected proxy links. Do not add private source URLs or credentials unless you intend the resulting proxy configurations to be publicly accessible. Respect source owners' terms and rate limits.
 
 ## Deployment
 
-Deploy this repository as a Docker service on Railway. The app exposes `/sub/all`, `/health`, and `/status`.
-
-## Security and operational notes
-
-The subscription is intentionally public. Anyone with its URL can retrieve the selected proxy links. Do not add private source URLs or credentials unless you intend to expose their resulting proxy configurations publicly. Respect source owners' terms and rate limits.
-
-The first release uses endpoint reachability and latency as a screening signal; it does not claim a full end-to-end VPN throughput test. A real Iranian-network test requires a separate agent running on an Iranian connection.
+Deploy this repository as a Docker service on Railway.
