@@ -15,17 +15,17 @@ Public V2Ray subscription aggregator. Railway collects configured sources, remov
 
 ## Railway Variables
 
-Add source URLs as separate Railway service Variables. Use names `SOURCE_1` through `SOURCE_20`, with one subscription URL in each value:
+Add source URLs as separate Railway service Variables. Use names `link_1` through `link_20`, with one subscription URL in each value:
 
 ```text
-SOURCE_1 = https://example.com/sub1
-SOURCE_2 = https://example.com/sub2
-SOURCE_3 = https://example.com/sub3
+link_1 = https://example.com/sub1
+link_2 = https://example.com/sub2
+link_3 = https://example.com/sub3
 ...
-SOURCE_20 = https://example.com/sub20
+link_20 = https://example.com/sub20
 ```
 
-You do not need to fill every number; missing or empty variables are ignored. The app also checks numeric names `1` through `20` for backward compatibility. The old `SOURCES` variable (comma- or newline-separated URLs) is also supported.
+You do not need to fill every number; missing or empty variables are ignored. Older names `SOURCE_1` through `SOURCE_20` and numeric names `1` through `20` are also accepted for backward compatibility. The old `SOURCES` variable (comma- or newline-separated URLs) is also supported.
 
 Optional variables:
 
